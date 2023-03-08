@@ -43,18 +43,22 @@ int main(int argc, char* argv[]) {
 
         #pragma acc kernels
         {
-        for (int j = 1; j < size - 1; j++) {
-            for (int i = 1; i < size - 1; i++) {
-                Anew[i][j] = 0.25 * (A[i + 1][j] + A[i - 1][j] + A[i][j - 1] + A[i][j + 1]);
-                error = fmax(error, fabs(Anew[i][j] - A[j][i]));
+            #pragma acc loop independent collapse(2) reduction(max:error)
+            for (int j = 1; j < size - 1; j++) {
+                for (int i = 1; i < size - 1; i++) {
+                    Anew[i][j] = 0.25 * (A[i + 1][j] + A[i - 1][j] + A[i][j - 1] + A[i][j + 1]);
+                    error = fmax(error, fabs(Anew[i][j] - A[j][i]));
+                }
+            }
+            #pragma acc loop independent collapse(2) reduction(max:error)
+            for ( int i = 1; i < size - 1; i++)
+            {
+                for( int j = 1; j < size - 1; j++ )
+                {
+                    A[i][j] = Anew[i][j];
+                }
             }
         }
-        }
-        
-        double** swap = A;
-        A = Anew;
-        Anew = swap;
-
         if ((iter % 100 == 0) or (iter == 1)) {
             std::cout << iter << ":" << error << "\n";
         }

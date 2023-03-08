@@ -20,6 +20,9 @@ int main(int argc, char* argv[]) {
     double error = 1.0;
     double add = 10.0 / (size - 1);
 
+    #pragma acc enter data copyin(A[0:(size * size)], Anew[0:(size * size)], error)
+    #pragma acc kernels
+    {
     A[0] = 10;
     A[size - 1] = 20;
     A[(size - 1)*(size)] = 20;
@@ -35,13 +38,13 @@ int main(int argc, char* argv[]) {
         Anew[i*(size)] = A[(i - 1) *(size)] + add;
         Anew[i*(size)+size - 1] = A[(i - 1)*(size)+size - 1] + add;
 	}
+    }
 
-    #pragma acc enter data copyin(A[0:(size * size)], Anew[0:(size * size)], error)
     while ((error > tol) && (iter < iter_max)) {
         iter = iter + 1;
         if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
             error = 0.0;
-            #pragma acc update device(error) 
+            #pragma acc update device(error)
         }
         #pragma acc kernels
         {
@@ -66,6 +69,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    #pragma acc exit data delete(A[0:(size * size)], Anew[0:(size * size)], error)
     delete[] A;
     delete[] Anew;
 

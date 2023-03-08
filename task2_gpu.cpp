@@ -49,14 +49,12 @@ int main(int argc, char* argv[]) {
                 error = fmax(error, fabs(Anew[i][j] - A[j][i]));
             }
         }
-        for ( int i = 1; i < size - 1; i++)
-        {
-            for( int j = 1; j < size - 1; j++ )
-            {
-                A[i][j] = Anew[i][j];
-            }
         }
-        }
+        
+        double** swap = A;
+        A = Anew;
+        Anew = swap;
+
         if ((iter % 100 == 0) or (iter == 1)) {
             std::cout << iter << ":" << error << "\n";
         }

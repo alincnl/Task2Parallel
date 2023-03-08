@@ -36,12 +36,14 @@ int main(int argc, char* argv[]) {
         Anew[i*(size)+size - 1] = A[(i - 1)*(size)+size - 1] + add;
 	}
 
-    #pragma acc data copyin(A[0:(size * size)], Anew[0:(size * size)]) 
+    #pragma acc enter data copyin(A[0:(size * size)], Anew[0:(size * size)], error)
     while ((error > tol) && (iter < iter_max)) {
         iter = iter + 1;
         error = 0.0;
+        #pragma acc update device(error) 
         #pragma acc kernels
         {
+            #pragma acc loop independent collapse(2) reduction(max:error)
             for (int j = 1; j < size - 1; j++) {
                 for (int i = 1; i < size - 1; i++) {
                     Anew[i * size + j] = 0.25 * (A[(i + 1) * size + j] + A[(i - 1) * size + j] + A[i * size + j - 1] + A[i * size + j + 1]);
@@ -50,18 +52,15 @@ int main(int argc, char* argv[]) {
             }
         }   
 
-        for ( int i = 1; i < size - 1; i++)
-        {
-            for( int j = 1; j < size - 1; j++ )
-            {
-                A[i * size + j] = Anew[i * size + j];
-            }
-        }
+        double* swap = A;
+		A = Anew;
+		Anew = swap;
+        #pragma acc update host(error)
         if ((iter % 100 == 0) or (iter == 1)) {
             std::cout << iter << ":" << error << "\n";
         }
     }
-    
+
     delete[] A;
     delete[] Anew;
 

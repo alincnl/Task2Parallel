@@ -39,15 +39,19 @@ int main(int argc, char* argv[]) {
     #pragma acc enter data copyin(A[0:(size * size)], Anew[0:(size * size)], error)
     while ((error > tol) && (iter < iter_max)) {
         iter = iter + 1;
-        error = 0.0;
-        #pragma acc update device(error) 
+        if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
+            error = 0.0;
+            #pragma acc update device(error) 
+        }
         #pragma acc kernels
         {
             #pragma acc loop independent collapse(2) reduction(max:error)
             for (int j = 1; j < size - 1; j++) {
                 for (int i = 1; i < size - 1; i++) {
                     Anew[i * size + j] = 0.25 * (A[(i + 1) * size + j] + A[(i - 1) * size + j] + A[i * size + j - 1] + A[i * size + j + 1]);
-					error = fmax(error, fabs(Anew[i * size + j] - A[i * size + j]));
+                    if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
+                        error = fmax(error, fabs(Anew[i * size + j] - A[i * size + j]));
+                    }
                 }
             }
         }   
@@ -55,8 +59,9 @@ int main(int argc, char* argv[]) {
         double* swap = A;
 		A = Anew;
 		Anew = swap;
-        #pragma acc update host(error)
-        if ((iter % 100 == 0) or (iter == 1)) {
+
+        if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
+            #pragma acc update host(error)
             std::cout << iter << ":" << error << "\n";
         }
     }

@@ -13,61 +13,56 @@ int main(int argc, char* argv[]) {
     //double tol = atof(argv[1]);
     //int size = atoi(argv[2]), iter_max = atoi(argv[3]);
 
-    double** A = new double*[size];
-    for (size_t i = 0; i < size; ++i) A[i] = new double[size];
-    double** Anew = new double*[size];
-    for (size_t i = 0; i < size; ++i) Anew[i] = new double[size];
+    double* A = new double[size*size];
+    double* Anew = new double[size*size];
 
     int iter = 0;
     double error = 1.0;
     double add = 10.0 / (size - 1);
 
-    A[0][0] = 10;
-    A[0][size - 1] = 20;
-    A[size - 1][0] = 20;
-    A[size - 1][size - 1] = 30;
+    A[0] = 10;
+    A[size - 1] = 20;
+    A[(size - 1)*(size)] = 20;
+    A[(size - 1)*(size)+ size - 1] = 30;
 
-    #pragma acc kernels
-    for (int i = 1; i < size - 1; i++) {
-        A[0][i] = A[0][i - 1] + add;
-        A[size - 1][i] = A[size - 1][i - 1] + add;
-        A[i][0] = A[i - 1][0] + add;
-        A[i][size - 1] = A[i - 1][size - 1] + add;
-    }
+	for (size_t i = 1; i < size - 1; i++) {
+		A[i] = A[i - 1] + add;
+        A[(size - 1)*(size)+i] = A[(size - 1)*(size)+i - 1] + add;
+        A[i*(size)] = A[(i - 1) *(size)] + add;
+        A[i*(size)+size - 1] = A[(i - 1)*(size)+size - 1] + add;
+        Anew[i] = A[i - 1] + add;
+        Anew[(size - 1)*(size)+i] = A[(size - 1)*(size)+i - 1] + add;
+        Anew[i*(size)] = A[(i - 1) *(size)] + add;
+        Anew[i*(size)+size - 1] = A[(i - 1)*(size)+size - 1] + add;
+	}
 
-    #pragma acc data copyin(A[0:size][0:size], Anew[0:size][0:size])
-    {
+    #pragma acc data copyin(A[0:(size * size)], Anew[0:(size * size)]) 
     while ((error > tol) && (iter < iter_max)) {
         iter = iter + 1;
         error = 0.0;
-
         #pragma acc kernels
         {
-            #pragma acc loop independent collapse(2) reduction(max:error)
             for (int j = 1; j < size - 1; j++) {
                 for (int i = 1; i < size - 1; i++) {
-                    Anew[i][j] = 0.25 * (A[i + 1][j] + A[i - 1][j] + A[i][j - 1] + A[i][j + 1]);
-                    error = fmax(error, fabs(Anew[i][j] - A[j][i]));
+                    Anew[i * size + j] = 0.25 * (A[(i + 1) * size + j] + A[(i - 1) * size + j] + A[i * size + j - 1] + A[i * size + j + 1]);
+					error = fmax(error, fabs(Anew[i * size + j] - A[i * size + j]));
                 }
             }
-            #pragma acc loop independent collapse(2) reduction(max:error)
-            for ( int i = 1; i < size - 1; i++)
+        }   
+
+        for ( int i = 1; i < size - 1; i++)
+        {
+            for( int j = 1; j < size - 1; j++ )
             {
-                for( int j = 1; j < size - 1; j++ )
-                {
-                    A[i][j] = Anew[i][j];
-                }
+                A[i * size + j] = Anew[i * size + j];
             }
         }
         if ((iter % 100 == 0) or (iter == 1)) {
             std::cout << iter << ":" << error << "\n";
         }
     }
-    }
-
-    for (size_t i = 0; i < size; ++i) delete[] A[i];
+    
     delete[] A;
-    for (size_t i = 0; i < size; ++i) delete[] Anew[i];
     delete[] Anew;
 
     auto end = std::chrono::steady_clock::now();

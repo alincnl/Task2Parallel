@@ -3,9 +3,9 @@
 #include <cmath>
 using namespace std;
 
-#define size 512
+#define size 128
 #define tol 0.000001
-#define iter_max 100
+#define iter_max 1000000
 
 int main(int argc, char* argv[]) {
     auto begin = std::chrono::steady_clock::now();
@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     double add = 10.0 / (size - 1);
 
     #pragma acc enter data copyin(A[0:(size * size)], Anew[0:(size * size)], error)
-    #pragma acc kernels
+    #pragma acc kernels async
     {
     A[0] = 10;
     A[size - 1] = 20;
@@ -44,9 +44,10 @@ int main(int argc, char* argv[]) {
         iter = iter + 1;
         if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
             error = 0.0;
-            #pragma acc update device(error)
+            #pragma acc update device(error) async(1)
         }
-        #pragma acc kernels
+        
+        #pragma acc parallel num_workers(64) vector_length(16) async(0)
         {
             #pragma acc loop independent collapse(2) reduction(max:error)
             for (int j = 1; j < size - 1; j++) {
@@ -64,15 +65,20 @@ int main(int argc, char* argv[]) {
 		Anew = swap;
 
         if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
-            #pragma acc update host(error)
-            std::cout << iter << ":" << error << "\n";
+            #pragma acc update host(error) async(0) wait
         }
+    }
+
+    if(iter!=iter_max){
+        std::cout << iter_max << ":" << error << "\n";
+    }
+    else{
+        std::cout << iter << ":" << error << "\n";
     }
 
     #pragma acc exit data delete(A[0:(size * size)], Anew[0:(size * size)], error)
     delete[] A;
     delete[] Anew;
-
     auto end = std::chrono::steady_clock::now();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end-begin);
     std::cout << "The time:" << elapsed_ms.count() << "ms\n";

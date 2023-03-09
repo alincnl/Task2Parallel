@@ -3,15 +3,11 @@
 #include <cmath>
 using namespace std;
 
-#define size 128
-#define tol 0.000001
-#define iter_max 1000000
-
 int main(int argc, char* argv[]) {
     auto begin = std::chrono::steady_clock::now();
 
-    //double tol = atof(argv[1]);
-    //int size = atoi(argv[2]), iter_max = atoi(argv[3]);
+    double tol = atof(argv[1]);
+    int size = atoi(argv[2]), iter_max = atoi(argv[3]);
 
     double* A = new double[size*size];
     double* Anew = new double[size*size];

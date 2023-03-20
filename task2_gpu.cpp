@@ -1,6 +1,8 @@
+
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <stdio.h>
 using namespace std;
 
 int main(int argc, char* argv[]) {
@@ -8,22 +10,20 @@ int main(int argc, char* argv[]) {
 
     double tol = atof(argv[1]);
     int size = atoi(argv[2]), iter_max = atoi(argv[3]);
-
+    
     double* A = new double[size*size];
     double* Anew = new double[size*size];
-
     int iter = 0;
     double error = 1.0;
     double add = 10.0 / (size - 1);
 
-    #pragma acc enter data copyin(A[0:(size * size)], Anew[0:(size * size)], error)
-    #pragma acc kernels async
+    #pragma acc enter data copyin(A[0:(size * size)], Anew[0:(size * size)],error)
+    #pragma acc kernels
     {
     A[0] = 10;
     A[size - 1] = 20;
     A[(size - 1)*(size)] = 20;
     A[(size - 1)*(size)+ size - 1] = 30;
-
 	for (size_t i = 1; i < size - 1; i++) {
 		A[i] = A[i - 1] + add;
         A[(size - 1)*(size)+i] = A[(size - 1)*(size)+i - 1] + add;
@@ -35,15 +35,13 @@ int main(int argc, char* argv[]) {
         Anew[i*(size)+size - 1] = A[(i - 1)*(size)+size - 1] + add;
 	}
     }
-
     while ((error > tol) && (iter < iter_max)) {
         iter = iter + 1;
         if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
             error = 0.0;
-            #pragma acc update device(error) async(1)
+            #pragma acc update device(error) async
         }
-        
-        #pragma acc parallel num_workers(64) vector_length(16) async(0)
+        #pragma acc parallel num_workers(64) vector_length(16) async
         {
             #pragma acc loop independent collapse(2) reduction(max:error)
             for (int j = 1; j < size - 1; j++) {
@@ -55,29 +53,21 @@ int main(int argc, char* argv[]) {
                 }
             }
         }   
-
         double* swap = A;
 		A = Anew;
 		Anew = swap;
-
         if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
-            #pragma acc update host(error) async(0) wait
+            #pragma acc update host(error) async wait
+            std::cout << iter << ":" << error << "\n";
         }
     }
-
-    if(iter!=iter_max){
-        std::cout << iter_max << ":" << error << "\n";
-    }
-    else{
-        std::cout << iter << ":" << error << "\n";
-    }
-
+    
     #pragma acc exit data delete(A[0:(size * size)], Anew[0:(size * size)], error)
     delete[] A;
     delete[] Anew;
+
     auto end = std::chrono::steady_clock::now();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end-begin);
     std::cout << "The time:" << elapsed_ms.count() << "ms\n";
     return 0;
 }
-

@@ -39,12 +39,12 @@ int main(int argc, char* argv[]) {
     while ((error > tol) && (iter < iter_max)) {
         iter = iter + 1;
         if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
-            #pragma acc kernels
+            #pragma acc kernels async
             {
             error = 0.0;
             }
         }
-        #pragma acc parallel num_workers(64) vector_length(16)
+        #pragma acc parallel num_workers(64) vector_length(16) async
         {
             #pragma acc loop independent collapse(2) reduction(max:error)
             for (int j = 1; j < size - 1; j++) {
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 		A = Anew;
 		Anew = swap;
         if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
-            #pragma acc update host(error) 
+            #pragma acc update host(error) wait
             std::cout << iter << ":" << error << "\n";
         }
     }

@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -43,19 +42,28 @@ int main(int argc, char* argv[]) {
             {
             error = 0.0;
             }
-        }
-        #pragma acc parallel num_workers(64) vector_length(16) async
-        {
+            #pragma acc parallel num_workers(64) vector_length(16) async
+            {
             #pragma acc loop independent collapse(2) reduction(max:error)
             for (int j = 1; j < size - 1; j++) {
                 for (int i = 1; i < size - 1; i++) {
                     Anew[i * size + j] = 0.25 * (A[(i + 1) * size + j] + A[(i - 1) * size + j] + A[i * size + j - 1] + A[i * size + j + 1]);
-                    if ((iter % 100 == 0) or (iter == iter_max) or (iter==1)) {
-                        error = fmax(error, fabs(Anew[i * size + j] - A[i * size + j]));
-                    }
+                    error = fmax(error, fabs(Anew[i * size + j] - A[i * size + j]));
                 }
             }
         }   
+        }
+        else{
+        #pragma acc parallel num_workers(64) vector_length(16) async
+        {
+            #pragma acc loop independent collapse(2)
+            for (int j = 1; j < size - 1; j++) {
+                for (int i = 1; i < size - 1; i++) {
+                    Anew[i * size + j] = 0.25 * (A[(i + 1) * size + j] + A[(i - 1) * size + j] + A[i * size + j - 1] + A[i * size + j + 1]);
+                }
+            }
+        }   
+        }
         double* swap = A;
 		A = Anew;
 		Anew = swap;
